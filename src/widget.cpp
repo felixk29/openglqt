@@ -1,6 +1,9 @@
 #include "widget.h"
 #include <QDebug>
 #include <cstddef>
+#include <QMouseEvent>
+#include <QWheelEvent>
+#include <cmath>
 
 static const char *vertexShaderSource = R"(#version 330 core
 layout(location = 0) in vec3 aPos;
@@ -126,6 +129,42 @@ void Widget::paintGL()
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
     m_vao.release();
     m_program->release();
+}
+
+void Widget::resetView(){
+
+    m_offset =QVector3D();
+    m_zoom=DefaultZoom;
+    m_yaw=DefaultYaw;
+    m_pitch=DefaultPitch;
+    emit viewChanged();
+    update();
+}
+
+void Widget::mousePressEvent(QMouseEvent *event){
+    m_lastMousePos=event->position();
+}
+
+void Widget::mouseMoveEvent(QMouseEvent *event){
+    if(!(event->buttons() & Qt::LeftButton))
+        return;
+    
+    const QPointF delta= event->position()-m_lastMousePos;
+    m_lastMousePos=event->position();
+
+    const float degreesPerPixel=0.5f;
+    m_yaw= std::remainder(m_yaw+float(delta.x())*degreesPerPixel,360);
+    m_pitch= std::remainder(m_pitch+float(delta.y())*degreesPerPixel,360);
+    
+    emit viewChanged();
+    update();
+}
+
+void Widget::wheelEvent(QWheelEvent *event){
+    const float steps=event->angleDelta().y()/120.f;
+    m_zoom = qBound(0.25, m_zoom*std::pow(1.1f,steps),3.f);
+    emit viewChanged();
+    update();
 }
 
 

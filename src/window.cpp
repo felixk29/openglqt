@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
+#include <QSignalBlocker>
 
 namespace {
 //sliderfactory
@@ -18,6 +19,8 @@ QSlider *addSlider(QFormLayout *form, const QString &label, int min, int max, in
     form->addRow(label, slider);
     return slider;
 }
+
+constexpr float OffsetScale = 5.0f;
 }
 
 Window::Window(QWidget *parent): QMainWindow(parent){
@@ -31,18 +34,18 @@ Window::Window(QWidget *parent): QMainWindow(parent){
     //Controls
     auto *positionBox = new QGroupBox("Position");
     auto *positionForm= new QFormLayout(positionBox);
-    QSlider *offsetX=addSlider(positionForm, "X", -10,10,0);
-    QSlider *offsetY=addSlider(positionForm, "Y", -10,10,0);
-    QSlider *offsetZ=addSlider(positionForm, "Z", -10,10,0);
+    m_offsetX=addSlider(positionForm, "X", -10,10,0);
+    m_offsetY=addSlider(positionForm, "Y", -10,10,0);
+    m_offsetZ=addSlider(positionForm, "Z", -10,10,0);
 
     auto *viewBox = new QGroupBox("View");
     auto *viewForm = new QFormLayout(viewBox);
-    QSlider *zoom = addSlider(viewForm,"Zoom",25,300,100); //percentage of standard view (3 units away)
+    m_zoom = addSlider(viewForm,"Zoom",25,300,100); //percentage of standard view (3 units away)
 
     auto *rotationBox = new QGroupBox("Rotation");
     auto *rotationForm = new QFormLayout(rotationBox);
-    QSlider *yaw = addSlider(rotationForm, "Yaw", -180,180,40); //degrees
-    QSlider *pitch = addSlider(rotationForm, "Pitch", -180,180,30); //degrees
+    m_yaw = addSlider(rotationForm, "Yaw", -180,180,40); //degrees
+    m_pitch = addSlider(rotationForm, "Pitch", -180,180,30); //degrees
 
     auto *resetButton = new QPushButton("Reset View");
 
@@ -66,20 +69,31 @@ Window::Window(QWidget *parent): QMainWindow(parent){
 
 
     //Connecting
-    connect(offsetX, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setOffsetX(v/50.f);});
-    connect(offsetY, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setOffsetY(v/50.f);});
-    connect(offsetZ, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setOffsetZ(v/50.f);});
-    connect(zoom, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setZoom(v/100.f);});
-    connect(yaw, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setYaw(v);});
-    connect(pitch, &QSlider::valueChanged, m_viewport, [this](int v) {m_viewport->setPitch(v);});
+    connect(m_offsetX, &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setOffsetX(v / OffsetScale); });
+    connect(m_offsetY, &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setOffsetY(v / OffsetScale); });
+    connect(m_offsetZ, &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setOffsetZ(v / OffsetScale); });
+    connect(m_zoom,    &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setZoom(v / 100.0f); });
+    connect(m_yaw,     &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setYaw(v); });
+    connect(m_pitch,   &QSlider::valueChanged, m_viewport, [this](int v) { m_viewport->setPitch(v); });
 
-    connect(resetButton, &QPushButton::clicked, this, [=] {
-        offsetX->setValue(0);
-        offsetY->setValue(0);
-        offsetZ->setValue(0);
-        zoom->setValue(100);
-        yaw->setValue(40);
-        pitch->setValue(30);
-    });
+    connect(m_viewport, &Widget::viewChanged, this, &Window::syncSliders);
+
+    connect(resetButton, &QPushButton::clicked, m_viewport, &Widget::resetView);
+
+    syncSliders();
+}
+
+void Window::syncSliders(){
+    auto setBlocked=[](QSlider *slider, float v){
+        const QSignalBlocker blocker(slider);
+        slider->setValue(qRound(v));
+    };
+
+    setBlocked(m_offsetX, m_viewport->offset().x() * OffsetScale);
+    setBlocked(m_offsetY, m_viewport->offset().y() * OffsetScale);
+    setBlocked(m_offsetZ, m_viewport->offset().z() * OffsetScale);
+    setBlocked(m_zoom,    m_viewport->zoom() * 100.0f);
+    setBlocked(m_yaw,     m_viewport->yaw());
+    setBlocked(m_pitch,   m_viewport->pitch());
 
 }
