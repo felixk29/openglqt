@@ -53,6 +53,8 @@ private:
 
     QPointF m_lastMousePos;
 
+    int m_indexCount=0;
+
 public slots:
     void setOffsetX(float x);
     void setOffsetY(float y);
