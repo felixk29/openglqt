@@ -53,15 +53,11 @@ void main()
 
 
 namespace {
-
-struct Vertex {
-    QVector3D position;
-    QVector3D normal;
-};
-
 //build cube
-void makeCube(std::vector<Vertex> &vertices, std::vector<GLuint> &indices)
+MeshData makeCube()
 {
+
+    MeshData mesh;
     const QVector3D normals[] = {
         { 1, 0, 0}, {-1, 0, 0},   // right, left
         { 0, 1, 0}, { 0,-1, 0},   // top, bottom
@@ -72,14 +68,17 @@ void makeCube(std::vector<Vertex> &vertices, std::vector<GLuint> &indices)
         const QVector3D u = (n.x() != 0) ? QVector3D(0, 1, 0) : QVector3D(1, 0, 0);
         const QVector3D v = QVector3D::crossProduct(n, u);
 
-        const GLuint first = GLuint(vertices.size());
-        vertices.push_back({(n - u - v) * 0.5f, n});
-        vertices.push_back({(n + u - v) * 0.5f, n});
-        vertices.push_back({(n + u + v) * 0.5f, n});
-        vertices.push_back({(n - u + v) * 0.5f, n});
+        const GLuint first = GLuint(mesh.vertices.size());
+        mesh.vertices.push_back({(n - u - v) * 0.5f, n});
+        mesh.vertices.push_back({(n + u - v) * 0.5f, n});
+        mesh.vertices.push_back({(n + u + v) * 0.5f, n});
+        mesh.vertices.push_back({(n - u + v) * 0.5f, n});
         //put first and second triangle in
-        indices.insert(indices.end(), {first, first + 1, first + 2,first + 2, first + 3, first});
+        mesh.indices.insert(mesh.indices.end(), {first, first + 1, first + 2,first + 2, first + 3, first});
     }
+
+    mesh.computeBounds();
+    return mesh;
 }
 
 } // namespace
@@ -101,32 +100,51 @@ void Widget::initializeGL(){
     if (!m_program->link())
         qWarning() << "Link error:" << m_program->log();
     //loading shaders and some warnings
-    std::vector<Vertex> vertices;
-    std::vector<GLuint> indices;
-    makeCube(vertices, indices);
-    m_indexCount = int(indices.size());
-
+       // Create the GPU objects ONCE and describe the vertex layout
     m_vao.create();
     m_vao.bind();
 
     m_vbo.create();
     m_vbo.bind();
-    m_vbo.allocate(vertices.data(), int(vertices.size() * sizeof(Vertex)));
-
     m_ebo.create();
     m_ebo.bind();
-    m_ebo.allocate(indices.data(), int(indices.size() * sizeof(GLuint)));
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                           reinterpret_cast<void *>(offsetof(Vertex, position)));
-
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                          reinterpret_cast<void *>(offsetof(Vertex, normal)));   // CHANGED
+                          reinterpret_cast<void *>(offsetof(Vertex, normal)));
 
     m_vao.release();
     m_vbo.release();
+
+    // Fill them with the default cube
+    uploadMesh(makeCube());
+}
+
+void Widget::setMesh(const MeshData &mesh){
+    makeCurrent();
+    uploadMesh(mesh);
+    doneCurrent();
+    update();
+}
+
+void Widget::uploadMesh(const MeshData &mesh){
+    m_vao.bind();
+    m_vbo.bind();
+    m_vbo.allocate(mesh.vertices.data(),int(mesh.vertices.size()*sizeof(Vertex)));
+    m_ebo.bind();
+    m_ebo.allocate(mesh.indices.data(),int(mesh.indices.size()*sizeof(std::uint32_t)));
+    m_vao.release();
+    m_vbo.release();
+
+    m_indexCount=int(mesh.indices.size());
+
+    const QVector3D size=mesh.size();
+    const float largest=std::max({size.x(),size.y(),size.z()});
+    m_fitScale=largest > 0.f ? 1.f/largest:1.f;
+    m_fitCenter=mesh.center();
 
 }
 
@@ -147,6 +165,8 @@ void Widget::paintGL()
     model.translate(m_offset);               
     model.rotate(m_pitch, 1.0f, 0.0f, 0.0f);
     model.rotate(m_yaw,   0.0f, 1.0f, 0.0f);
+    model.scale(m_fitScale);
+    model.translate(-m_fitCenter);
 
     QMatrix4x4 view;
     view.translate(0.0f, 0.0f, -3.0f / m_zoom);   

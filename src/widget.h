@@ -8,6 +8,7 @@
 #include <QMatrix4x4>
 #include <QVector3D>
 #include <QPointF>
+#include "meshdata.h"
 
 class Widget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -22,6 +23,7 @@ public:
     float yaw() const {return m_yaw;}
     float pitch() const {return m_pitch;}
 
+    void setMesh(const MeshData &mesh); 
 
 protected:
     void initializeGL() override;
@@ -54,6 +56,11 @@ private:
     QPointF m_lastMousePos;
 
     int m_indexCount=0;
+
+
+    void uploadMesh(const MeshData &mesh);
+    QVector3D m_fitCenter;
+    float m_fitScale=1.f;
 
 public slots:
     void setOffsetX(float x);

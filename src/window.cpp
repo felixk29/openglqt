@@ -9,6 +9,12 @@
 #include <QVBoxLayout>
 #include <QSignalBlocker>
 
+#include "stl.h"
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QStatusBar>
+
 namespace {
 //sliderfactory
 QSlider *addSlider(QFormLayout *form, const QString &label, int min, int max, int value)
@@ -57,7 +63,8 @@ Window::Window(QWidget *parent): QMainWindow(parent){
     panelLayout->addWidget(viewBox);
     panelLayout->addWidget(rotationBox);
     panelLayout->addWidget(resetButton);
-    panelLayout->addWidget(new QPushButton("Load model..."));
+    auto *loadButton=new QPushButton("Load model...");
+    panelLayout->addWidget(loadButton);
     panelLayout->addStretch();
 
     //Combining
@@ -79,9 +86,29 @@ Window::Window(QWidget *parent): QMainWindow(parent){
     connect(m_viewport, &Widget::viewChanged, this, &Window::syncSliders);
 
     connect(resetButton, &QPushButton::clicked, m_viewport, &Widget::resetView);
-
+    connect(loadButton, &QPushButton::clicked, this, &Window::openModel);
     syncSliders();
 }
+
+void Window::openModel(){
+    const QString path= QFileDialog::getOpenFileName(this, "Open model", QStringLiteral(MODELS_DIR), "STL files (*stl);");
+    if(path.isEmpty()){return;}
+
+    MeshData mesh;
+    QString error;
+    if (!loadStl(path,mesh,error)){
+        QMessageBox::warning(this, "Could not load model", error);
+        return;
+    }
+
+    m_viewport->setMesh(mesh);
+    const QVector3D size=mesh.size();
+    statusBar()->showMessage(
+        QString("%1 | %2 triangles").arg(QFileInfo(path).fileName()).arg(mesh.triangleCount())
+        );
+
+}
+
 
 void Window::syncSliders(){
     auto setBlocked=[](QSlider *slider, float v){

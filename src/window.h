@@ -12,6 +12,7 @@ public:
 
 private:
     Widget *m_viewport=nullptr;
+    void openModel();
 
     void syncSliders();
 

@@ -9,8 +9,10 @@ qt_standard_project_setup()
 
 qt_add_executable(viewer
     src/main.cpp
-    src/window.h    src/window.cpp
-    src/widget.h    src/widget.cpp
+    src/window.h     src/window.cpp
+    src/widget.h     src/widget.cpp
+    src/meshdata.h
+    src/stl.h  src/stl.cpp
 )
 
 target_link_libraries(viewer PRIVATE 
@@ -18,3 +20,5 @@ target_link_libraries(viewer PRIVATE
     Qt6::OpenGL
     Qt6::OpenGLWidgets
     )
+
+target_compile_definitions(viewer PRIVATE MODELS_DIR="${CMAKE_SOURCE_DIR}/models")
