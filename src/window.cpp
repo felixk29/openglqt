@@ -15,6 +15,10 @@
 #include <QMessageBox>
 #include <QStatusBar>
 
+#include <QComboBox>
+#include <QDir>
+#include <QDirIterator>
+
 namespace {
 //sliderfactory
 QSlider *addSlider(QFormLayout *form, const QString &label, int min, int max, int value)
@@ -27,6 +31,13 @@ QSlider *addSlider(QFormLayout *form, const QString &label, int min, int max, in
 }
 
 constexpr float OffsetScale = 5.0f;
+
+const QString &formatName(const QString &path){
+ //make name only be filename (without ending .stl) left and in slightly greyed out file size on the right side
+    //TODO
+
+}
+
 }
 
 Window::Window(QWidget *parent): QMainWindow(parent){
@@ -63,8 +74,18 @@ Window::Window(QWidget *parent): QMainWindow(parent){
     panelLayout->addWidget(viewBox);
     panelLayout->addWidget(rotationBox);
     panelLayout->addWidget(resetButton);
+
+    //standard Load Model Option
     auto *loadButton=new QPushButton("Load model...");
     panelLayout->addWidget(loadButton);
+
+    //alternative Version 
+    auto *modelBox=new QGroupBox("Model");
+    auto *modelForm=new QFormLayout(modelBox);
+
+    m_modelBox=new QComboBox;
+    panelLayout->addWidget(m_modelBox);
+
     panelLayout->addStretch();
 
     //Combining
@@ -86,14 +107,46 @@ Window::Window(QWidget *parent): QMainWindow(parent){
     connect(m_viewport, &Widget::viewChanged, this, &Window::syncSliders);
 
     connect(resetButton, &QPushButton::clicked, m_viewport, &Widget::resetView);
-    connect(loadButton, &QPushButton::clicked, this, &Window::openModel);
+
+    connect(loadButton, &QPushButton::clicked, this, &Window::chooseModel);
+    //alternative
+    connect(m_modelBox, &QComboBox::activated, this, [this](int index) {
+        loadModel(m_modelBox->itemData(index).toString());
+    });;
+    fillModelList();
+
     syncSliders();
 }
 
-void Window::openModel(){
+void Window::chooseModel(){
     const QString path= QFileDialog::getOpenFileName(this, "Open model", QStringLiteral(MODELS_DIR), "STL files (*stl);");
     if(path.isEmpty()){return;}
+    return loadModel(path);
+}
 
+
+void Window::fillModelList(){
+    //TODO add that folder name is inserted as categories before listing corresponding files
+    const QDir modelsDir(QStringLiteral(MODELS_DIR));
+
+    QStringList files;
+    QDirIterator iter(modelsDir.absolutePath(),{"*.stl"},QDir::Files,QDirIterator::Subdirectories);
+
+    while(iter.hasNext()) files << iter.next();
+
+    const QSignalBlocker blocker(m_modelBox);
+    m_modelBox-> clear();
+    for (const QString &file: files){
+        m_modelBox-> addItem(modelsDir.relativeFilePath(file),file);
+    }
+
+    m_modelBox->setCurrentIndex(-1);
+    m_modelBox->setPlaceholderText("Select model...");
+}
+
+
+
+void Window::loadModel(const QString &path){
     MeshData mesh;
     QString error;
     if (!loadStl(path,mesh,error)){

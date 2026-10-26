@@ -3,6 +3,7 @@
 #include <QMainWindow> 
 class QSlider;
 class Widget; 
+class QComboBox; 
 
 class Window: public QMainWindow{
     Q_OBJECT
@@ -12,7 +13,9 @@ public:
 
 private:
     Widget *m_viewport=nullptr;
-    void openModel();
+    void chooseModel();
+    void fillModelList();
+    void loadModel(const QString &path);
 
     void syncSliders();
 
@@ -22,4 +25,6 @@ private:
     QSlider *m_zoom = nullptr;
     QSlider *m_yaw = nullptr;
     QSlider *m_pitch = nullptr;
+
+    QComboBox *m_modelBox=nullptr;
 };
