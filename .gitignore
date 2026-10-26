@@ -2,3 +2,5 @@ build/
 .vscode/
 todo.md
 models/l/
+6.8.2/
+*.log
